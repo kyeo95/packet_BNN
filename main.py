@@ -64,6 +64,37 @@ class BNN(nn.Module):
             nn.BatchNorm1d(num_classes, affine=False),
             nn.LogSoftmax(dim=1),
         )
+    # 기본적으로 구성되어있는 layer
+    # class BNNCaffenet(nn.Module):
+    #
+    #     def __init__(self, num_classes=10):
+    #         super(BNNCaffenet, self).__init__()
+    #
+    #         self.features = nn.Sequential(
+    #
+    #             BNNConv2d(3, 32, kernel_size=5, stride=1, padding=2, bias=False),
+    #             nn.BatchNorm2d(32),
+    #             nn.Hardtanh(inplace=True),
+    #             nn.MaxPool2d(kernel_size=3, stride=2, padding=0, ceil_mode=True),
+    #
+    #             BNNConv2d(32, 32, kernel_size=5, stride=1, padding=2, bias=False),
+    #             nn.BatchNorm2d(32),
+    #             nn.Hardtanh(inplace=True),
+    #             nn.MaxPool2d(kernel_size=3, stride=2, padding=0, ceil_mode=True),
+    #
+    #             BNNConv2d(32, 32, kernel_size=5, stride=1, padding=2, bias=False),
+    #             nn.BatchNorm2d(32),
+    #             nn.Hardtanh(inplace=True),
+    #             nn.MaxPool2d(kernel_size=3, stride=2, padding=0, ceil_mode=True),
+    #
+    #             nn.Flatten(),
+    #             nn.BatchNorm1d(512),
+    #             nn.Hardtanh(inplace=True),
+    #             BNNLinear(512, num_classes),
+    #             nn.BatchNorm1d(num_classes, affine=False),
+    #             nn.LogSoftmax(dim=1),
+    #         )
+    #
 
     def init_w(self):
         # weight initialization
