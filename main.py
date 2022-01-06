@@ -4,8 +4,8 @@ from classifiers.bnn_classifier import *
 import pandas as pd
 from models import *
 import torch.nn as nn
-from torch.nn import Module, Conv2d, Linear
-from torch.nn.functional import linear
+from torch.nn import Module, Conv2d, Linear, Conv1d
+from torch.nn.functional import linear, conv2d, conv1d
 import torch.optim as optim
 import os
 import numpy as np
@@ -39,67 +39,56 @@ class BNNLinear(Linear):
 
         if not self.bias is None:
             self.bias.org = self.bias.data.clone()
-            out += self.bias.view(1, -1).expand_as(out)
+            out += self.bias.view(1, 0).expand_as(out)
 
         return out
 
-class BNN(nn.Module):
-    def __init__(self, lr, input_dims, fc1_dims, num_classes=10):
-        super(BNN, self).__init__()
-        self.input_dims = input_dims
-        self.fc1_dims = fc1_dims
-        self.fc1 = BNNLinear(120, num_classes)
 
-        self.optimizer = optim.Adam(self.parameters(), lr=lr)
-        self.loss = nn.MSELoss()
-        self.device = T.device('cuda:0' if T.cuda.is_available() else 'cpu')
-        self.to(self.device)
+class BNNConv2d(Conv2d):
+
+    def __init__(self, *kargs, **kwargs):
+        super(BNNConv2d, self).__init__(*kargs, **kwargs)
+        self.register_buffer('weight_org', self.weight.data.clone())
+
+    def forward(self, input):
+        if input.size(1) != 3:
+            input.data = Binarize(input.data)
+
+        self.weight.data = Binarize(self.weight_org)
+
+        out = conv2d(input, self.weight, None, self.stride,
+                     self.padding, self.dilation, self.groups)
+
+        if not self.bias is None:
+            self.bias.org = self.bias.data.clone()
+            out += self.bias.view(1, -1, 1, 1).expand_as(out)
+
+        return out
+
+
+class BNNCaffenet(nn.Module):
+
+    def __init__(self, num_classes=10):
+        super(BNNCaffenet, self).__init__()
 
         self.features = nn.Sequential(
 
-            nn.Flatten(),
-            nn.BatchNorm1d(120),
+            Conv1d(1, 1, kernel_size=20, stride=1, padding=0),
             nn.Hardtanh(inplace=True),
-            BNNLinear(120, num_classes),
-            nn.BatchNorm1d(num_classes, affine=False),
-            nn.LogSoftmax(dim=1),
+            #nn.MaxPool2d(kernel_size=3, stride=2, padding=0, ceil_mode=True),
+
+            # nn.Flatten(),
+            # #nn.BatchNorm1d(512),
+            # nn.Hardtanh(inplace=True),
+            # BNNLinear(512, num_classes),
+            # nn.BatchNorm1d(num_classes, affine=False),
+            # nn.LogSoftmax(dim=1),
         )
-    # 기본적으로 구성되어있는 layer
-    # class BNNCaffenet(nn.Module):
-    #
-    #     def __init__(self, num_classes=10):
-    #         super(BNNCaffenet, self).__init__()
-    #
-    #         self.features = nn.Sequential(
-    #
-    #             BNNConv2d(3, 32, kernel_size=5, stride=1, padding=2, bias=False),
-    #             nn.BatchNorm2d(32),
-    #             nn.Hardtanh(inplace=True),
-    #             nn.MaxPool2d(kernel_size=3, stride=2, padding=0, ceil_mode=True),
-    #
-    #             BNNConv2d(32, 32, kernel_size=5, stride=1, padding=2, bias=False),
-    #             nn.BatchNorm2d(32),
-    #             nn.Hardtanh(inplace=True),
-    #             nn.MaxPool2d(kernel_size=3, stride=2, padding=0, ceil_mode=True),
-    #
-    #             BNNConv2d(32, 32, kernel_size=5, stride=1, padding=2, bias=False),
-    #             nn.BatchNorm2d(32),
-    #             nn.Hardtanh(inplace=True),
-    #             nn.MaxPool2d(kernel_size=3, stride=2, padding=0, ceil_mode=True),
-    #
-    #             nn.Flatten(),
-    #             nn.BatchNorm1d(512),
-    #             nn.Hardtanh(inplace=True),
-    #             BNNLinear(512, num_classes),
-    #             nn.BatchNorm1d(num_classes, affine=False),
-    #             nn.LogSoftmax(dim=1),
-    #         )
-    #
 
     def init_w(self):
         # weight initialization
         for m in self.modules():
-            if isinstance(m, nn.Conv2d):
+            if isinstance(m, nn.Conv1d):
                 nn.init.kaiming_normal_(m.weight, mode='fan_out')
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
@@ -110,15 +99,6 @@ class BNN(nn.Module):
                 nn.init.normal_(m.weight, 0, 0.01)
                 nn.init.zeros_(m.bias)
         return
-
-
-__all__ = ['bnn_caffenet']
-
-#     def forward(self, x):
-#         return self.features(x)
-#
-# def bnn_caffenet(num_classes=10):
-#     return BNNCaffenet(num_classes)
 
 
 class BnnClassifier():
