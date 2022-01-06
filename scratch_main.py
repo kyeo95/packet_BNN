@@ -1,50 +1,48 @@
 import torch
-from classifiers.xnor_classifier import *
-from classifiers.dorefa_classifier import *
-from classifiers.bnn_classifier import *
-from config import FLAGS
-import importlib
-import pandas as pd
-from models import *
+import torch.nn as nn
+from torch.nn import Module, Conv1d,Conv2d, Linear
+from torch.nn.functional import linear, conv2d, conv1d
+from torch.utils.data import DataLoader
+from os.path import join
+from torchvision.datasets import MNIST
+from torchvision.transforms import Compose, Resize, Normalize, ToTensor
 
-cuda = torch.cuda.is_available() and not(FLAGS.no_cuda)
-device = torch.device('cuda' if cuda else 'cpu')
-torch.manual_seed(0)
-if cuda:
-    torch.backends.cudnn.deterministic=True
-    torch.cuda.manual_seed(0)
-
-dataset = importlib.import_module("dataloader.{}".format(FLAGS.dataset))
-train_loader = dataset.load_train_data(FLAGS.batch_size)
-test_loader = dataset.load_test_data(FLAGS.test_batch_size)
-
-model = eval(FLAGS.model)()
-model.to(device)
+def Binarize(tensor,quant_mode='det'):
+    if quant_mode=='det':
+        return tensor.sign()
+    if quant_mode=='bin':
+        return (tensor>=0).type(type(tensor))*2-1
+    else:
+        return tensor.add_(1).div_(2).add_(torch.rand(tensor.size()).add(-0.5)).clamp_(0,1).round().mul_(2).add_(-1)
 
 
-if FLAGS.bin_type == 'xnor':
-    classification = XnorClassifier(model, train_loader, test_loader, device)
+def initialize_W(Weight) :
+    nn.init.kaiming_normal_(Weight, mode='fan_out')
+    return
 
-elif FLAGS.bin_type == 'bnn':
-    classification = BnnClassifier(model, train_loader, test_loader, device)
-
-elif FLAGS.bin_type == 'dorefa':
-    classification = DorefaClassifier(model, train_loader, test_loader, device)
-
-criterion = torch.nn.CrossEntropyLoss()
-criterion.to(device)
-
-if hasattr(model, 'init_w'):
-    model.init_w()
+# i : 0~119
+def multiplication(Bitinput, Weight):
+    prebitcount = []
+    Weight_B = Binarize(Weight)
+    for i in range(0,120) :
+        for k in range(0,120) :
+             prebitcount.append(Bitinput[i] ^ Weight_B[i,k])
 
 
-if FLAGS.optimizer == 'adam':
-    optimizer = torch.optim.Adam(model.parameters(), lr=FLAGS.lr, weight_decay=1e-5)
-elif FLAGS.optimizer == 'sgd':
-    optimizer = torch.optim.SGD(model.parameters(), lr=FLAGS.lr, momentum=0.9,
-        weight_decay=5.e-4)
 
-scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, FLAGS.steps,
-        gamma=FLAGS.gamma)
+def Bitcount() :
 
-classification.train(criterion, optimizer, FLAGS.epochs, scheduler, FLAGS.checkpoint)
+
+    return
+
+
+
+
+
+
+
+
+if __name__ == '__main__' :
+    Weight = torch.randn(120,120)
+    initialize_W(Weight)
+
