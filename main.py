@@ -42,7 +42,6 @@ def Bitcount(tensor):
     activation = torch.zeros(1, 1)
 
     count = torch.bincount(tensor)
-    print("count = ", count)
     k = torch.tensor(4)
     # activation
     if count.size(dim=0) == 1:
@@ -51,7 +50,6 @@ def Bitcount(tensor):
         activation = torch.tensor([[1.]])
     else:
         activation = torch.tensor([[0.]])
-    print(activation)
     return activation
 
 
@@ -61,7 +59,6 @@ def multiplication(Bitinput, Weight, bit):
     precount = torch.zeros(bit, bit)
     Weight_B = Binarize(Weight)
     Weight_B = Weight_B.type(torch.int8)
-    print("Weight_B = ", Weight_B)
     for i in range(0, bit):
         for k in range(0, bit):
             precount[i][k] = XNOR(Bitinput[0][k], Weight_B[i][k])
@@ -95,21 +92,27 @@ class Bnntrainer():
         data = torch.zeros(5, 120)
         losses = []
         # t means packet sequence
-        for t in range(0,5):
-            j = 0
+        for t in range(0,4):
             for line in content:
                 k = 0
                 for i in line:
                     if i.isdigit() == True:
-                        data[j][k] = int(i)
+                        data[t][k] = int(i)
 
                         k += 1
-                j += 1
             activation = multiplication(Bitinput, Weight, self.bit)
             predict_target = predict(activation, Weight[bit], self.bit)
-            target = labeling.label(t)
-            loss = criterion(predict_target, target)
-            losses.append(loss.item())
+            #target = labeling.label(t)
+            print(predict_target)
+            target = torch.tensor(labeling.label(t))
+            target = target.float()
+            print(target)
+            #loss = criterion(predict_target[0][0], target)
+            if torch.equal(predict_target[0][0], target) :
+                loss = 0
+            else :
+                loss = 1
+            #losses.append(loss.item())
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -141,4 +144,6 @@ if __name__ == '__main__':
     print(Weight)
 
     # target = data load
+
+
 
