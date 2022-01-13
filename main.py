@@ -10,7 +10,7 @@ from torchvision.transforms import Compose, Resize, Normalize, ToTensor
 import numpy as np
 import labeling
 import torch.nn as nn
-
+from torch.autograd import Variable
 
 def Binarize(tensor, quant_mode='det'):
     if quant_mode == 'det':
@@ -61,7 +61,7 @@ def multiplication(Bitinput, Weight, bit):
     Weight_B = Weight_B.type(torch.int8)
     for i in range(0, bit):
         for k in range(0, bit):
-            precount[i][k] = XNOR(Bitinput[0][k], Weight_B[i][k])
+            precount[i][k] = XNOR(Bitinput[k], Weight_B[i][k])
         # precount[i] = precount.type(torch.int8)
         activation[0][i] = Bitcount(precount[i])
         # activation = torch.cat((activation,new_activation),1)
@@ -87,10 +87,12 @@ class Bnntrainer():
         self.lr = lr
         self.device = device
 
-    def train_step(self, criterion, optimizer, Bitinput):
+    def train_step(self, criterion, optimizer):
 
-        data = torch.zeros(5, 120)
+        data = torch.zeros(100, 120)
         losses = []
+        f = open("output.txt", "r")
+        content = f.readlines()
         # t means packet sequence
         for t in range(0,4):
             for line in content:
@@ -100,18 +102,16 @@ class Bnntrainer():
                         data[t][k] = int(i)
 
                         k += 1
-            activation = multiplication(Bitinput, Weight, self.bit)
+            activation = multiplication(data[t], Weight, self.bit)
             predict_target = predict(activation, Weight[bit], self.bit)
             #target = labeling.label(t)
-            print(predict_target)
+            #print(predict_target)
             target = torch.tensor(labeling.label(t))
             target = target.float()
-            print(target)
+            #print(target)
             #loss = criterion(predict_target[0][0], target)
-            if torch.equal(predict_target[0][0], target) :
-                loss = 0
-            else :
-                loss = 1
+            loss = (predict_target[0][0]-target).pow(2).sum()
+            loss = Variable(loss, requires_grad=True)
             #losses.append(loss.item())
             optimizer.zero_grad()
             loss.backward()
@@ -132,7 +132,6 @@ if __name__ == '__main__':
     Weight = torch.randn((bit + 1, bit), requires_grad=True)
     initialize_W(Weight)
     print("Weight = ", Weight)
-    Bitinput = torch.tensor([[1, 0, 1, 1, 0, 1, 0, 0, 0, 1]])
     criterion = torch.nn.CrossEntropyLoss()
     criterion.to(device)
 
@@ -140,10 +139,9 @@ if __name__ == '__main__':
 
     optimizer = torch.optim.Adam([Weight], lr=0.01, weight_decay=1e-5)
     Bnn = Bnntrainer(Weight, bit=10)
-    Bnn.train_step(criterion, optimizer, Bitinput)
+    Bnn.train_step(criterion, optimizer)
     print(Weight)
 
     # target = data load
-
 
 
