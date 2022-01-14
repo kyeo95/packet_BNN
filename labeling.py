@@ -1,5 +1,4 @@
 import torch
-from classifiers.bnn_classifier import *
 #import importliba
 import pandas as pd
 from models import *
@@ -10,11 +9,11 @@ import torch.optim as optim
 import os
 import numpy as np
 from torch import save
-from tqdm import tqdm
 import shutil
 import pandas as pd
 
 #malicious한 IP로 왔는지 source를 대조
+from kamene.all import *
 
 def label(seq):
     #if malicious = 1
@@ -138,3 +137,115 @@ def checkIRC(dec_srcc,dec_srcd, dst):
         if dst[0] == 192 and dst[1] ==168 and dst[2] ==5 and dst[3] ==122 :
             label_malicious = 1
     return label_malicious
+
+
+# f = open("output.txt", "r")
+# content = f.readlines()
+#
+# data = torch.zeros(2,120)
+# for t in range(0,2) :
+#     for line in content:
+#         k = 0
+#         for i in line:
+#             if i.isdigit() == True:
+#                 data[t][k] = int(i)
+#                 #print(int(i))
+#                 k += 1
+
+#data[0][3] = int(12)
+# label(0)
+#
+# f = open("output.txt", "r")
+# content = f.readlines()
+# src_a = content[0][24:32]
+# src_b = content[0][32:40]
+# src_c = content[0][40:48]
+# src_d = content[0][48:56]
+#
+# print(content[0][24:56])
+# print(int(src_a, 2))
+# print(int(src_b, 2))
+# print(int(src_c, 2))
+# print(int(src_d, 2))
+
+from kamene.all import *
+import sys
+#sys.stdout = open('output.txt','w')
+
+def len2bin(len):
+    binary = format(len, '016b')
+    return binary
+
+def protocol2bin(proto):
+    binary = format(proto, '08b')
+    return binary
+
+def ip2bin(ip):
+    octets = map(int, ip.split('.'))
+    binary = '{0:08b}{1:08b}{2:08b}{3:08b}'.format(*octets)
+    return binary
+
+def L42bin(L4):
+    binary = format(L4, '016b')
+    return binary
+
+pkts = rdpcap("output11.pcap")
+for i in range (0,100):
+    if (pkts[i].haslayer(IP)):
+        if (pkts[i].haslayer(TCP)):
+            totalLen = pkts[i][IP].len
+            protocol = pkts[i].proto
+            srcAddr = pkts[i][IP].src
+            dstAddr = pkts[i][IP].dst
+            L4src = pkts[i][TCP].sport
+            L4dst = pkts[i][TCP].dport
+
+            BNNinput = len2bin(totalLen)+protocol2bin(protocol)+ip2bin(srcAddr)+ip2bin(dstAddr)+L42bin(L4src)+L42bin(L4dst)
+            print(BNNinput)
+
+#
+
+
+
+
+
+#
+#
+#
+#
+# from kamene.all import *
+# import sys
+# sys.stdout = open('output.txt','w')
+#
+# def len2bin(len):
+#     binary = format(len, '016b')
+#     return binary
+#
+# def protocol2bin(proto):
+#     binary = format(proto, '08b')
+#     return binary
+#
+# def ip2bin(ip):
+#     octets = map(int, ip.split('.'))
+#     binary = '{0:08b}{1:08b}{2:08b}{3:08b}'.format(*octets)
+#     return binary
+#
+# def L42bin(L4):
+#     binary = format(L4, '016b')
+#     return binary
+#
+# pkts = rdpcap("output11.pcap")
+#
+# for i in range(0,5):
+#     target_packet = pkts[i]
+#     for packet in target_packet:
+#         # This check is what you are missing
+#         if(packet[i].haslayer(IP)):
+#             totalLen = pkts[i][IP].len
+#             protocol = pkts[i].proto
+#             dstAddr = pkts[i][IP].dst
+#             srcAddr = pkts[i][IP].src
+#             L4src = pkts[i][TCP].sport
+#             L4dst = pkts[i][TCP].dport
+#             BNNinput = len2bin(totalLen)+protocol2bin(protocol)+ip2bin(srcAddr)+ip2bin(dstAddr)+L42bin(L4src)+L42bin(L4dst)
+#             print(BNNinput)
