@@ -11,7 +11,10 @@ import numpy as np
 from torch import save
 import shutil
 import pandas as pd
-
+import dpkt
+import datetime
+import socket
+from dpkt.compat import compat_ord
 #malicious한 IP로 왔는지 source를 대조
 from kamene.all import *
 
@@ -170,7 +173,7 @@ def checkIRC(dec_srcc,dec_srcd, dst):
 
 from kamene.all import *
 import sys
-sys.stdout = open('output.txt','w')
+#sys.stdout = open('output.txt','w')
 
 def len2bin(len):
     binary = format(len, '016b')
@@ -189,13 +192,44 @@ def L42bin(L4):
     binary = format(L4, '016b')
     return binary
 
-#pkts = rdpcap("data.pcap")
-with PcapReader('data.pcap') as pcap_reader:
-    for pkt in pcap_reader:
-        j = 0
-        # for i in range (0,500):
-        if (pkt.haslayer(IP)):
 
+from pypacker import ppcap
+from pypacker.layer12 import ethernet
+from pypacker.layer3 import ip
+from pypacker.layer4 import tcp
+
+preader = ppcap.Reader(filename="data.pcap")
+
+for ts, buf in preader:
+	eth = ethernet.Ethernet(buf)
+
+	if eth[ethernet.Ethernet, ip.IP, tcp.TCP] is not None:
+		print("%d: %s:%s -> %s:%s" % (ts, eth[ip.IP].src_s, eth[tcp.TCP].sport,
+			eth[ip.IP].dst_s, eth[tcp.TCP].dport))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#pkts = rdpcap("data.pcap")
+
+
+
+# with PcapReader('data.pcap') as pcap_reader:
+#     for pkt in pcap_reader:
+#         data = pkt.header
+#         print(data.IP)
+        # if (pkt.haslayer(IP)):
+        #     print(pkt.ip)
             #     #if (pkts[i].haslayer(TCP)):
             #     # ether_pkt = Ether(pkts)
             #     # ip_pkt = ether_pkt[IP]
@@ -209,17 +243,11 @@ with PcapReader('data.pcap') as pcap_reader:
             #     dstAddr = pkt[i][IP].dst
             #     L4src = pkt[i][TCP].sport
             #     L4dst = pkt[i][TCP].dport
-                totalLen = pkt[IP].len
-                protocol = pkt.proto
-                srcAddr = pktIP].src
-                dstAddr = pkt[i][IP].dst
-                L4src = pkt[i][TCP].sport
-                L4dst = pkt[i][TCP].dport
             #
-                BNNinput = len2bin(totalLen)+protocol2bin(protocol)+ip2bin(srcAddr)+ip2bin(dstAddr)+L42bin(L4src)+L42bin(L4dst)
-                print(BNNinput)
-                j +=1
-        print('counter =',j)
+        #         BNNinput = len2bin(totalLen)+protocol2bin(protocol)+ip2bin(srcAddr)+ip2bin(dstAddr)+L42bin(L4src)+L42bin(L4dst)
+        #         print(BNNinput)
+        #         j +=1
+        # print('counter =',j)
 
 # from scapy.utils import RawPcapReader
 #
