@@ -170,7 +170,7 @@ def checkIRC(dec_srcc,dec_srcd, dst):
 
 from kamene.all import *
 import sys
-#sys.stdout = open('output.txt','w')
+sys.stdout = open('output.txt','w')
 
 def len2bin(len):
     binary = format(len, '016b')
@@ -189,24 +189,77 @@ def L42bin(L4):
     binary = format(L4, '016b')
     return binary
 
-pkts = rdpcap("output11.pcap")
-for i in range (0,100):
-    if (pkts[i].haslayer(IP)):
-        if (pkts[i].haslayer(TCP)):
-            totalLen = pkts[i][IP].len
-            protocol = pkts[i].proto
-            srcAddr = pkts[i][IP].src
-            dstAddr = pkts[i][IP].dst
-            L4src = pkts[i][TCP].sport
-            L4dst = pkts[i][TCP].dport
+#pkts = rdpcap("data.pcap")
+with PcapReader('data.pcap') as pcap_reader:
+    for pkt in pcap_reader:
+        j = 0
+        # for i in range (0,500):
+        if (pkt.haslayer(IP)):
 
-            BNNinput = len2bin(totalLen)+protocol2bin(protocol)+ip2bin(srcAddr)+ip2bin(dstAddr)+L42bin(L4src)+L42bin(L4dst)
-            print(BNNinput)
+            #     #if (pkts[i].haslayer(TCP)):
+            #     # ether_pkt = Ether(pkts)
+            #     # ip_pkt = ether_pkt[IP]
+            #
+            #     if pkt[i].proto != 6:
+            #         # Ignore non-TCP packet
+            #         break
+            #     totalLen = pkt[i][IP].len
+            #     protocol = pkt[i].proto
+            #     srcAddr = pkt[i][IP].src
+            #     dstAddr = pkt[i][IP].dst
+            #     L4src = pkt[i][TCP].sport
+            #     L4dst = pkt[i][TCP].dport
+                totalLen = pkt[IP].len
+                protocol = pkt.proto
+                srcAddr = pktIP].src
+                dstAddr = pkt[i][IP].dst
+                L4src = pkt[i][TCP].sport
+                L4dst = pkt[i][TCP].dport
+            #
+                BNNinput = len2bin(totalLen)+protocol2bin(protocol)+ip2bin(srcAddr)+ip2bin(dstAddr)+L42bin(L4src)+L42bin(L4dst)
+                print(BNNinput)
+                j +=1
+        print('counter =',j)
 
+# from scapy.utils import RawPcapReader
 #
-
-
-
+#
+# def process_pcap(file_name):
+#     count = 0
+#     interesting_packet_count = 0
+#
+#     for (pkt_data, pkt_metadata,) in RawPcapReader(file_name):
+#         count += 1
+#
+#         ether_pkt = Ether(pkt_data)
+#         if 'type' not in ether_pkt.fields:
+#             # LLC frames will have 'len' instead of 'type'.
+#             # We disregard those
+#             continue
+#
+#         if ether_pkt.type != 0x0800:
+#             # disregard non-IPv4 packets
+#             continue
+#
+#         ip_pkt = ether_pkt[IP]
+#         if ip_pkt.proto != 6:
+#             # Ignore non-TCP packet
+#             continue
+#
+#         interesting_packet_count += 1
+#         print(pkt_data)
+#     # print('{} contains {} packets ({} interesting)'.
+#     #       format(file_name, count, interesting_packet_count))
+#
+# file_name = "output11.pcap"
+# sys.stdout = open('output.txt','w')
+#
+# if not os.path.isfile(file_name):
+#     print('"{}" does not exist'.format(file_name), file=sys.stderr)
+#     sys.exit(-1)
+#
+# process_pcap(file_name)
+# sys.exit(0)
 
 
 #
