@@ -15,6 +15,8 @@ from torch.autograd import Variable
 from torch import save, no_grad
 from kamene.all import *
 
+__all__ = ['packetbnn']
+
 class Packetbnn(nn.Module):
 
     def __init__(self, num_classes=1):
@@ -23,15 +25,16 @@ class Packetbnn(nn.Module):
         self.features = nn.Sequential(
 
             BNNConv2d(1, 120, kernel_size=(1,120), stride=1, padding=0, bias=False),
-            nn.BatchNorm2d(120),
+            #nn.BatchNorm2d(120),
             nn.Softsign(),
 
             nn.Flatten(),
-            nn.BatchNorm1d(120),
+            #nn.BatchNorm1d(120),
             # nn.Hardtanh(inplace=True),
             BNNLinear(120, num_classes),
-            nn.BatchNorm1d(num_classes, affine=False),
-            nn.LogSoftmax(dim=1),
+            #nn.BatchNorm1d(num_classes, affine=False),
+            #nn.LogSoftmax(dim=1),
+            #1개 데이터용 주석처리
         )
 
     def forward(self, x):
@@ -41,26 +44,29 @@ class Packetbnn(nn.Module):
         # weight initialization
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
-                nn.init.kaiming_normal_(m.weight, mode='fan_out')
+                #nn.init.kaiming_normal_(m.weight, mode='fan_out')
+                nn.init.uniform_(m.weight, a= 0., b= 1.)
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.ones_(m.weight)
                 nn.init.zeros_(m.bias)
             elif isinstance(m, nn.Linear):
-                nn.init.normal_(m.weight, 0, 0.01)
+                nn.init.normal_(m.weight, 0.5, 0.01)
                 nn.init.zeros_(m.bias)
         return
 
+def packetbnn(num_classes=1):
+    return Packetbnn(num_classes)
 
 def Binarize(tensor, quant_mode='det'):
     if quant_mode == 'det':
-        return tensor.sign().add_(1).div_(2)
+        result = (tensor-0.5).sign().add_(1).div_(2)
+        return result
     if quant_mode == 'bin':
         return (tensor >= 0).type(type(tensor)) * 2 - 1
     else:
         return tensor.add_(1).div_(2).add_(torch.rand(tensor.size()).add(-0.5)).clamp_(0, 1).round().mul_(2).add_(-1)
-
 
 class BNNLinear(Linear):
 
@@ -70,15 +76,15 @@ class BNNLinear(Linear):
 
     def forward(self, input):
 
-        if (input.size(1) != 784) and (input.size(1) != 3072):
-            input.data = Binarize(input.data)
+        #if (input.size(1) != 784) and (input.size(1) != 3072):
+        input.data = Binarize(input.data)
 
         self.weight.data = Binarize(self.weight_org)
-        out = linear(input, self.weight)
+        out = linear(input, self.weight.data)
 
-        if not self.bias is None:
-            self.bias.org = self.bias.data.clone()
-            out += self.bias.view(1, -1).expand_as(out)
+        # if not self.bias is None:
+        #     self.bias.org = self.bias.data.clone()
+        #     out += self.bias.view(1, -1).expand_as(out)
 
         return out
 
@@ -90,17 +96,17 @@ class BNNConv2d(Conv2d):
         self.register_buffer('weight_org', self.weight.data.clone())
 
     def forward(self, input):
-        if input.size(1) != 3:
-            input.data = Binarize(input.data)
+
+        input.data = Binarize(input.data)
 
         self.weight.data = Binarize(self.weight_org)
 
-        out = conv2d(input, self.weight, None, self.stride,
+        out = conv2d(input, self.weight.data, None, self.stride,
                      self.padding, self.dilation, self.groups)
 
-        if not self.bias is None:
-            self.bias.org = self.bias.data.clone()
-            out += self.bias.view(1, -1, 1, 1).expand_as(out)
+        # if not self.bias is None:
+        #     self.bias.org = self.bias.data.clone()
+        #     out += self.bias.view(1, -1, 1, 1).expand_as(out)
 
         return out
 
@@ -179,20 +185,20 @@ def L42bin(L4):
     binary = format(L4, '016b')
     return binary
 
-def dataload(sequence) :
-    pkts = rdpcap("output11.pcap")
-
-    for i in range (0,1000):
-        totalLen = pkts[i][IP].len
-        protocol = pkts[i].proto
-        srcAddr = pkts[i][IP].src
-        dstAddr = pkts[i][IP].dst
-        L4src = pkts[i][TCP].sport
-        L4dst = pkts[i][TCP].dport
-
-        BNNinput[i] = len2bin(totalLen)+protocol2bin(protocol)+ip2bin(srcAddr)+ip2bin(dstAddr)+L42bin(L4src)+L42bin(L4dst)
-
-    return BNNinput[sequence:sequence+5]
+# def dataload(sequence) :
+#     pkts = rdpcap("output11.pcap")
+#
+#     for i in range (0,1000):
+#         totalLen = pkts[i][IP].len
+#         protocol = pkts[i].proto
+#         srcAddr = pkts[i][IP].src
+#         dstAddr = pkts[i][IP].dst
+#         L4src = pkts[i][TCP].sport
+#         L4dst = pkts[i][TCP].dport
+#
+#         BNNinput[i] = len2bin(totalLen)+protocol2bin(protocol)+ip2bin(srcAddr)+ip2bin(dstAddr)+L42bin(L4src)+L42bin(L4dst)
+#
+#     return BNNinput[sequence:sequence+5]
 
 class Bnntrainer():
     def __init__(self, model, bit, lr=0.01, device=None):
@@ -202,71 +208,52 @@ class Bnntrainer():
         self.lr = lr
         self.device = device
 
-    # def test(self, criterion):
-    #     self.model.eval()
-    #     top1 = 0
-    #     test_loss = 0.
-    #
-    #     with no_grad():
-    #         for data, target in tqdm(self.test_loader):
-    #             data, target = data.to(self.device), target.to(self.device)
-    #             output = self.model(data)
-    #             test_loss += criterion(output, target).item()
-    #             pred = output.argmax(dim=1, keepdim=True)
-    #             top1 += pred.eq(target.view_as(pred)).sum().item()
-    #
-    #     top1_acc = 100. * top1 / len(self.test_loader.sampler)
-    #
-    #     return top1_acc
-
-
-    # def top1_accuracy(self):
-    #     return top1_accuracy(self.model, self.test_loader, self.device)
-
-
-    def train_step(self, criterion, optimizer):
-        #data = torch.zeros(100, 120)
+    def train_step(self, optimizer):
+        data = torch.zeros(10000, 120)
         losses = []
-        # f = open("output.txt", "r")
-        # content = f.readlines()
-        # t means packet sequence
-        # for t in range(0,4):
-        #     for line in content:
-        #         k = 0
-        #         for i in line:
-        #             if i.isdigit() == True:
-        #                 data[t][k] = int(i)
-        #
-        #                 k += 1
-        data = dataload()
-            #target = labeling.label(t)
-            #print(predict_target)
-        predict = model(data)
-        target = torch.tensor(labeling.label(data))
-        target = target.float()
-        print(target)
-        loss = criterion(predict_target[0][0], target)
+        input = torch.zeros(2,1,1,120)
+        f = open("output.txt", "r")
+        content = f.readlines()
+        #t means packet sequence
+        data_target = [[]]
+        for t in range(0,10000):
+            for line in content:
+                k = 0
+                for i in line:
+                    if i.isdigit() == True:
+                        data[t][k] = int(i)
 
-        #loss = Variable(loss, requires_grad=True)
-        losses.append(loss.item())
-        optimizer.zero_grad()
-        loss.backward()
-        for p in self.model.modules():
-            if hasattr(p, 'weight_org'):
-                p.weight.data.copy_(p.weight_org)
-        optimizer.step()
-        for p in self.model.modules():
-            if hasattr(p, 'weight_org'):
-                p.weight_org.data.copy_(p.weight.data.clamp_(0, 1))
+                        k += 1
+            if t %2 == 1 :
+                input[0][0] = data[t-1]
+                input[1][0] = data[t]
+                a = labeling.label(t-1)
+                b = labeling.label(t)
+                target = torch.cat((a,b))
+                output = self.model(input)
+
+                loss = (output-target).pow(2).sum()
+
+                loss = Variable(loss, requires_grad=True)
+                losses.append(loss.item())
+                optimizer.zero_grad()
+                loss.backward()
+                for p in self.model.modules():
+                    if hasattr(p, 'weight_org'):
+                        p.weight.data.copy_(p.weight_org)
+                optimizer.step()
+                for p in self.model.modules():
+                    if hasattr(p, 'weight_org'):
+                        p.weight_org.data.copy_(p.weight.data.clamp_(-1, 2))
         return losses
 
-    def train(self, criterion, optimizer, epochs, scheduler
+    def train(self, optimizer, epochs, scheduler
               ):
         losses = []
 
         for epoch in range(1, epochs + 1):
             self.model.train()
-            epoch_losses = self.train_step(criterion, optimizer)
+            epoch_losses = self.train_step(optimizer)
             losses += epoch_losses
             epoch_losses = np.array(epoch_losses)
             lr = optimizer.param_groups[0]['lr']
@@ -285,26 +272,22 @@ if __name__ == '__main__':
     cuda = torch.cuda.is_available()
     device = torch.device('cuda' if cuda else 'cpu')
     bit = 120
-
-    model = eval(Packetbnn.model)()
-    model.to(device)
-
-    criterion = torch.nn.CrossEntropyLoss()
-    criterion.to(device)
+    Packetbnn = packetbnn()
+    # model = eval("packetbnn")()
+    # model.to(device)
 
     Packetbnn.init_w()
 
     # sample input
-    Bnn = Bnntrainer(model, bit=120, device='cuda')
+    Bnn = Bnntrainer(Packetbnn, bit=120, device='cuda')
+    #Bnn = Bnntrainer(model, bit=120, device='cuda')
+    optimizer = torch.optim.Adam(Packetbnn.parameters(), lr=0.001, weight_decay=1e-5)
+    steps=  [80, 150]
+    gamma= 0.1
+    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, steps, gamma=gamma)
+    epochs = 300
+    Bnn.train(optimizer, epochs, scheduler)
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
-
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, Packetbnn.steps,
-                                                     gamma=Packetbnn.gamma)
-
-    Bnn.train(criterion, optimizer, Packetbnn.epochs, scheduler)
-
-    #print(Weight)
+    print(Packetbnn.features[0].weight)
 
     # target = data load
-
