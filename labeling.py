@@ -11,10 +11,7 @@ import numpy as np
 from torch import save
 import shutil
 import pandas as pd
-import dpkt
-import datetime
-import socket
-from dpkt.compat import compat_ord
+
 #malicious한 IP로 왔는지 source를 대조
 from kamene.all import *
 
@@ -96,7 +93,8 @@ def label(seq):
     if dec_srca == 10 and dec_srcb == 37:
         if dec_srcc == 130 and dec_srcd == 4:
             label_malicious = 1
-
+    label_malicious = torch.tensor([[label_malicious]])
+    label_malicious = label_malicious.float()
     return label_malicious
 
 def checkIRC(dec_srcc,dec_srcd, dst):
@@ -139,7 +137,13 @@ def checkIRC(dec_srcc,dec_srcd, dst):
     if dec_srcc == 1 and dec_srcd == 105:
         if dst[0] == 192 and dst[1] ==168 and dst[2] ==5 and dst[3] ==122 :
             label_malicious = 1
+
     return label_malicious
+
+a = label(0)
+
+print(a)
+
 
 
 # f = open("output.txt", "r")
@@ -170,84 +174,6 @@ def checkIRC(dec_srcc,dec_srcd, dst):
 # print(int(src_b, 2))
 # print(int(src_c, 2))
 # print(int(src_d, 2))
-
-from kamene.all import *
-import sys
-#sys.stdout = open('output.txt','w')
-
-def len2bin(len):
-    binary = format(len, '016b')
-    return binary
-
-def protocol2bin(proto):
-    binary = format(proto, '08b')
-    return binary
-
-def ip2bin(ip):
-    octets = map(int, ip.split('.'))
-    binary = '{0:08b}{1:08b}{2:08b}{3:08b}'.format(*octets)
-    return binary
-
-def L42bin(L4):
-    binary = format(L4, '016b')
-    return binary
-
-
-from pypacker import ppcap
-from pypacker.layer12 import ethernet
-from pypacker.layer3 import ip
-from pypacker.layer4 import tcp
-
-preader = ppcap.Reader(filename="data.pcap")
-
-for ts, buf in preader:
-	eth = ethernet.Ethernet(buf)
-
-	if eth[ethernet.Ethernet, ip.IP, tcp.TCP] is not None:
-		print("%d: %s:%s -> %s:%s" % (ts, eth[ip.IP].src_s, eth[tcp.TCP].sport,
-			eth[ip.IP].dst_s, eth[tcp.TCP].dport))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#pkts = rdpcap("data.pcap")
-
-
-
-# with PcapReader('data.pcap') as pcap_reader:
-#     for pkt in pcap_reader:
-#         data = pkt.header
-#         print(data.IP)
-        # if (pkt.haslayer(IP)):
-        #     print(pkt.ip)
-            #     #if (pkts[i].haslayer(TCP)):
-            #     # ether_pkt = Ether(pkts)
-            #     # ip_pkt = ether_pkt[IP]
-            #
-            #     if pkt[i].proto != 6:
-            #         # Ignore non-TCP packet
-            #         break
-            #     totalLen = pkt[i][IP].len
-            #     protocol = pkt[i].proto
-            #     srcAddr = pkt[i][IP].src
-            #     dstAddr = pkt[i][IP].dst
-            #     L4src = pkt[i][TCP].sport
-            #     L4dst = pkt[i][TCP].dport
-            #
-        #         BNNinput = len2bin(totalLen)+protocol2bin(protocol)+ip2bin(srcAddr)+ip2bin(dstAddr)+L42bin(L4src)+L42bin(L4dst)
-        #         print(BNNinput)
-        #         j +=1
-        # print('counter =',j)
 
 # from scapy.utils import RawPcapReader
 #
@@ -317,11 +243,9 @@ for ts, buf in preader:
 #
 # pkts = rdpcap("output11.pcap")
 #
-# for i in range(0,5):
-#     target_packet = pkts[i]
-#     for packet in target_packet:
-#         # This check is what you are missing
-#         if(packet[i].haslayer(IP)):
+# for i in range(0,49999):
+#     if (pkts[i].haslayer(TCP)):
+#         if (pkts[i].haslayer(IP)):
 #             totalLen = pkts[i][IP].len
 #             protocol = pkts[i].proto
 #             dstAddr = pkts[i][IP].dst
@@ -330,3 +254,14 @@ for ts, buf in preader:
 #             L4dst = pkts[i][TCP].dport
 #             BNNinput = len2bin(totalLen)+protocol2bin(protocol)+ip2bin(srcAddr)+ip2bin(dstAddr)+L42bin(L4src)+L42bin(L4dst)
 #             print(BNNinput)
+# sys.stdout.close()
+# with open("output.txt", "r") as f:
+#     lines = f.readlines()
+# with open("output.txt", "w") as f:
+#     for line in lines:
+#         if line.strip("\n") != "<UNIVERSAL> <class 'kamene.asn1.asn1.ASN1_Class_metaclass'>":
+#             f.write(line)
+# with open("output.txt", "r") as f:
+#     lines = f.readlines()
+
+
