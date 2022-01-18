@@ -17,7 +17,7 @@ from kamene.all import *
 
 def label():
     #if malicious = 1
-    label = np.zeros(49000)
+    label = np.zeros(49100)
     f = open("output.txt", "r")
     label_malicious= 0
     content = f.readlines()
