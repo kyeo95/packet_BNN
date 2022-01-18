@@ -1,4 +1,4 @@
-BNN for Packet classification(uncomplete)
+BNN for Packet classification(incomplete)
 
 inspired by Q. Qin, K. Poularakis, K. K. Leung and L. Tassiulas, "Line-Speed and Scalable Intrusion Detection at the Network Edge via Federated Learning,"
 2020 IFIP Networking Conference (Networking), 2020, pp. 352-360.
