@@ -168,37 +168,7 @@ def XNOR(A, B):
 #     return target
 #
 #
-def len2bin(len):
-    binary = format(len, '016b')
-    return binary
 
-def protocol2bin(proto):
-    binary = format(proto, '08b')
-    return binary
-
-def ip2bin(ip):
-    octets = map(int, ip.split('.'))
-    binary = '{0:08b}{1:08b}{2:08b}{3:08b}'.format(*octets)
-    return binary
-
-def L42bin(L4):
-    binary = format(L4, '016b')
-    return binary
-
-# def dataload(sequence) :
-#     pkts = rdpcap("output11.pcap")
-#
-#     for i in range (0,1000):
-#         totalLen = pkts[i][IP].len
-#         protocol = pkts[i].proto
-#         srcAddr = pkts[i][IP].src
-#         dstAddr = pkts[i][IP].dst
-#         L4src = pkts[i][TCP].sport
-#         L4dst = pkts[i][TCP].dport
-#
-#         BNNinput[i] = len2bin(totalLen)+protocol2bin(protocol)+ip2bin(srcAddr)+ip2bin(dstAddr)+L42bin(L4src)+L42bin(L4dst)
-#
-#     return BNNinput[sequence:sequence+5]
 
 class Bnntrainer():
     def __init__(self, model, bit, lr=0.01, device=None):
@@ -209,85 +179,72 @@ class Bnntrainer():
         self.device = device
 
     def train_step(self, optimizer):
-        data = torch.zeros(10000, 120)
+        data = torch.zeros(50000, self.bit)
         losses = []
-        input = torch.zeros(2,1,1,120)
+        input = torch.zeros(1,1,1,self.bit)
+        label = labeling.label()
         f = open("output.txt", "r")
         content = f.readlines()
         #t means packet sequence
         data_target = [[]]
-        for t in range(0,10000):
-            for line in content:
-                k = 0
-                for i in line:
-                    if i.isdigit() == True:
-                        data[t][k] = int(i)
+        t = 0
+        for line in content:
+            k = 0
+            for i in line:
+                if i.isdigit() == True:
+                    data[t][k] = int(i)
+                    k += 1
 
-                        k += 1
-            if t %2 == 1 :
-                input[0][0] = data[t-1]
-                input[1][0] = data[t]
-                a = labeling.label(t-1)
-                b = labeling.label(t)
-                target = torch.cat((a,b))
-                output = self.model(input)
 
-                loss = (output-target).pow(2).sum()
+            input[0][0] = data[t]
+            target = torch.tensor(label[t])
 
-                loss = Variable(loss, requires_grad=True)
-                losses.append(loss.item())
-                optimizer.zero_grad()
-                loss.backward()
-                for p in self.model.modules():
-                    if hasattr(p, 'weight_org'):
-                        p.weight.data.copy_(p.weight_org)
-                optimizer.step()
-                for p in self.model.modules():
-                    if hasattr(p, 'weight_org'):
-                        p.weight_org.data.copy_(p.weight.data.clamp_(-1, 2))
+            output = self.model(input)
+
+            loss = (output-target).pow(2).sum()
+            loss = Variable(loss, requires_grad=True)
+            losses.append(loss.item())
+            optimizer.zero_grad()
+            loss.backward()
+            for p in self.model.modules():
+                if hasattr(p, 'weight_org'):
+                    p.weight.data.copy_(p.weight_org)
+            optimizer.step()
+            for p in self.model.modules():
+                if hasattr(p, 'weight_org'):
+                    p.weight_org.data.copy_(p.weight.data.clamp_(-1, 2))
+            t +=1
         return losses
-
-    def train(self, optimizer, epochs, scheduler
-              ):
-        losses = []
-
-        for epoch in range(1, epochs + 1):
-            self.model.train()
-            epoch_losses = self.train_step(optimizer)
-            losses += epoch_losses
-            epoch_losses = np.array(epoch_losses)
-            lr = optimizer.param_groups[0]['lr']
-            if scheduler:
-                scheduler.step()
-            print('Train Epoch {0}\t Loss: {1:.6f}\t lr: {2:.4f}'
-                  .format(epoch, epoch_losses.mean(),lr))
-            return
-
 
 if __name__ == '__main__':
     #data load
     # f = open("output.txt", "r")
     # content = f.readlines()
 
-    cuda = torch.cuda.is_available()
-    device = torch.device('cuda' if cuda else 'cpu')
+    # cuda = torch.cuda.is_available()
+    device = torch.device('cpu')
+    # print(device)
     bit = 120
     Packetbnn = packetbnn()
     # model = eval("packetbnn")()
     # model.to(device)
-
+    Packetbnn.to(device)
     Packetbnn.init_w()
 
     # sample input
     Bnn = Bnntrainer(Packetbnn, bit=120, device='cuda')
-    #Bnn = Bnntrainer(model, bit=120, device='cuda')
     optimizer = torch.optim.Adam(Packetbnn.parameters(), lr=0.001, weight_decay=1e-5)
-    steps=  [80, 150]
-    gamma= 0.1
-    scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, steps, gamma=gamma)
-    epochs = 300
-    Bnn.train(optimizer, epochs, scheduler)
+
+    losses= Bnn.train_step(optimizer)
+    sys.stdout = open('weight.txt', 'w')
 
     print(Packetbnn.features[0].weight)
+    print(Packetbnn.features[3].weight)
+
+    print(Binarize(Packetbnn.features[0].weight))
+    print(Binarize(Packetbnn.features[3].weight))
+    for i in range(40000):
+        if i%100 == 0 :
+            print(losses[i])
 
     # target = data load
