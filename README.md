@@ -7,7 +7,7 @@ inspired by Q. Qin, K. Poularakis, K. K. Leung and L. Tassiulas, "Line-Speed and
 code reused from https://github.com/lucamocerino/Binary-Neural-Networks-PyTorch-1.0
 
 packet_BNN.py is main file in this code.
-only code you need is labeling.py to run this packet_BNN.py which is used for labeling malicious packet.
+you will only need labeling.py to run this packet_BNN.py which is used for labeling malicious packet.
 
 Binary data is 5 tuple bitdata extracted from ISCX BOTNET2014.
 
