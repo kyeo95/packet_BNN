@@ -14,6 +14,7 @@ import torch.nn as nn
 from torch.autograd import Variable
 from torch import save, no_grad
 from kamene.all import *
+import sys
 
 __all__ = ['packetbnn']
 
@@ -198,7 +199,7 @@ class Bnntrainer():
 
             input[0][0] = data[t]
             target = torch.tensor(label[t])
-
+            input, target = input.to(self.device), target.to(self.device)
             output = self.model(input)
 
             loss = (output-target).pow(2).sum()
@@ -220,9 +221,10 @@ if __name__ == '__main__':
     #data load
     # f = open("output.txt", "r")
     # content = f.readlines()
-
-    # cuda = torch.cuda.is_available()
-    device = torch.device('cpu')
+    torch.set_printoptions(threshold=50000)
+    torch.set_printoptions(linewidth=20000)
+    cuda = torch.cuda.is_available()
+    device = torch.device('cuda' if cuda else 'cpu')
     # print(device)
     bit = 120
     Packetbnn = packetbnn()
@@ -232,6 +234,7 @@ if __name__ == '__main__':
     Packetbnn.init_w()
 
     # sample input
+
     Bnn = Bnntrainer(Packetbnn, bit=120, device='cuda')
     optimizer = torch.optim.Adam(Packetbnn.parameters(), lr=0.001, weight_decay=1e-5)
 
@@ -240,9 +243,11 @@ if __name__ == '__main__':
 
     print(Packetbnn.features[0].weight)
     print(Packetbnn.features[3].weight)
-
-    print(Binarize(Packetbnn.features[0].weight))
+    W = Binarize(Packetbnn.features[0].weight)
+    WW = W.byte()
+    # print(Binarize(Packetbnn.features[0].weight))
     print(Binarize(Packetbnn.features[3].weight))
+    print(WW)
     for i in range(40000):
         if i%100 == 0 :
             print(losses[i])
