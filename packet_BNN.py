@@ -28,17 +28,12 @@ class Packetbnn(nn.Module):
         self.features = nn.Sequential(
 
             BNNConv2d(1, 120, kernel_size=(1,120), stride=1, padding=0, bias=False),
-            #nn.BatchNorm2d(120),
+            nn.GroupNorm(1,120),
             nn.Softsign(),
 
             nn.Flatten(),
-            #nn.BatchNorm1d(120),
-            # nn.Hardtanh(inplace=True),
-            BNNLinear(120, num_classes),
-            #nn.BatchNorm1d(num_classes, affine=False),
-            #nn.LogSoftmax(dim=1),
-            #StraightThroughEstimator()
-            #1개 데이터용 주석처리
+            BNNLinear(120, 1),
+
         )
 
     def forward(self, x):
@@ -55,22 +50,21 @@ class Packetbnn(nn.Module):
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.ones_(m.weight)
                 nn.init.zeros_(m.bias)
+            elif isinstance(m, nn.GroupNorm):
+                nn.init.ones_(m.weight)
+                nn.init.zeros_(m.bias)
             elif isinstance(m, nn.Linear):
-                nn.init.normal_(m.weight_org, 0.5, 0.01)
+                nn.init.uniform_(m.weight_org, a= 1., b= 1.)
                 nn.init.zeros_(m.bias)
         return
 
 def packetbnn(num_classes=1):
     return Packetbnn(num_classes)
 
-def Binarize(tensor, quant_mode='det'):
-    if quant_mode == 'det':
-        result = (tensor-0.5).sign().add_(1).div_(2)
-        return result
-    if quant_mode == 'bin':
-        return (tensor >= 0).type(type(tensor)) * 2 - 1
-    else:
-        return tensor.add_(1).div_(2).add_(torch.rand(tensor.size()).add(-0.5)).clamp_(0, 1).round().mul_(2).add_(-1)
+def Binarize(tensor):
+    result = (tensor-0.5).sign().add_(1).div_(2)
+    return result
+
 
 # class STEFunction(torch.autograd.Function):
 #     @staticmethod
@@ -94,19 +88,10 @@ class BNNLinear(Linear):
 
     def __init__(self, *kargs, **kwargs):
         super(BNNLinear, self).__init__(*kargs, **kwargs)
-        self.register_buffer('weight_org', self.weight.data.clone())
 
     def forward(self, input):
 
-        #if (input.size(1) != 784) and (input.size(1) != 3072):
-        input.data = Binarize(input.data)
-
-        self.weight.data = Binarize(self.weight_org)
-        out = linear(input, self.weight.data).sub_(60)
-
-        # if not self.bias is None:
-        #     self.bias.org = self.bias.data.clone()
-        #     out += self.bias.view(1, -1).expand_as(out)
+        out = linear(input, self.weight)
 
         return out
 
@@ -126,73 +111,7 @@ class BNNConv2d(Conv2d):
         out = conv2d(input, self.weight.data, None, self.stride,
                      self.padding, self.dilation, self.groups)
 
-        # if not self.bias is None:
-        #     self.bias.org = self.bias.data.clone()
-        #     out += self.bias.view(1, -1, 1, 1).expand_as(out)
-
         return out
-
-def XNOR(A, B):
-    if A == 0 and B == 0:
-        return torch.tensor(1)
-    if A == 0 and B == 1:
-        return torch.tensor(0)
-    if A == 1 and B == 0:
-        return torch.tensor(0)
-    if A == 1 and B == 1:
-        return torch.tensor(1)
-
-
-
-
-# def initialize_W(Weight):
-#     nn.init.kaiming_normal_(Weight, mode='fan_out')
-#     return
-
-
-# def Bitcount(tensor):
-#     tensor = tensor.type(torch.int8)
-#     activation = torch.zeros(1, 1)
-#
-#     count = torch.bincount(tensor)
-#     k = torch.tensor(4)
-#     # activation
-#     if count.size(dim=0) == 1:
-#         activation = torch.tensor([[0.]])
-#     elif count[1] > k:
-#         activation = torch.tensor([[1.]])
-#     else:
-#         activation = torch.tensor([[0.]])
-#     return activation
-#
-#
-# # i : 0~119
-# def multiplication(Bitinput, Weight, bit):
-#     activation = torch.zeros(1, bit)
-#     precount = torch.zeros(bit, bit)
-#     Weight_B = Binarize(Weight)
-#     Weight_B = Weight_B.type(torch.int8)
-#     for i in range(0, bit):
-#         for k in range(0, bit):
-#             precount[i][k] = XNOR(Bitinput[k], Weight_B[i][k])
-#         # precount[i] = precount.type(torch.int8)
-#         activation[0][i] = Bitcount(precount[i])
-#         # activation = torch.cat((activation,new_activation),1)
-#     return activation
-
-#
-# def predict(activation, Weight, bit):
-#     precount = torch.zeros(bit)
-#     Weight_B = Binarize(Weight)
-#     Weight_B = Weight_B.type(torch.int8)
-#     for i in range(0, bit):
-#         precount[i] = XNOR(activation[0][i], Weight_B[i])
-#     target = Bitcount(precount)
-#
-#     return target
-#
-#
-
 
 class Bnntrainer():
     def __init__(self, model, bit, lr=0.01, device=None):
@@ -279,11 +198,8 @@ if __name__ == '__main__':
     sys.stdout = open('weight.txt', 'w')
 
     print(Packetbnn.features[0].weight)
-    print(Packetbnn.features[3].weight)
-    W = Binarize(Packetbnn.features[0].weight)
-    WW = W.byte()
     print(Binarize(Packetbnn.features[0].weight).byte())
-    print(Binarize(Packetbnn.features[3].weight).byte())
+
 
     # for i in range(40000):
     #     if i%100 == 0 :
