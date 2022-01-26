@@ -3,7 +3,7 @@ import torch
 import os
 import torch.nn as nn
 from torch.nn import Module, Conv1d, Conv2d, Linear
-from torch.nn.functional import linear, conv2d, conv1d
+from torch.nn.functional import linear, conv2d, conv1d, hardtanh
 from torch.utils.data import DataLoader
 from os.path import join
 from torchvision.datasets import MNIST
@@ -11,10 +11,12 @@ from torchvision.transforms import Compose, Resize, Normalize, ToTensor
 import numpy as np
 import labeling
 import torch.nn as nn
-from torch.autograd import Variable
+#from torch.autograd import Variable
+import torch.autograd as autograd
 from torch import save, no_grad
 from kamene.all import *
 import sys
+from matplotlib import pyplot as plt
 
 __all__ = ['packetbnn']
 
@@ -35,6 +37,7 @@ class Packetbnn(nn.Module):
             BNNLinear(120, num_classes),
             #nn.BatchNorm1d(num_classes, affine=False),
             #nn.LogSoftmax(dim=1),
+            #StraightThroughEstimator()
             #1개 데이터용 주석처리
         )
 
@@ -46,14 +49,14 @@ class Packetbnn(nn.Module):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 #nn.init.kaiming_normal_(m.weight, mode='fan_out')
-                nn.init.uniform_(m.weight, a= 0., b= 1.)
+                nn.init.uniform_(m.weight_org, a= 0., b= 1.)
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
             elif isinstance(m, nn.BatchNorm2d):
                 nn.init.ones_(m.weight)
                 nn.init.zeros_(m.bias)
             elif isinstance(m, nn.Linear):
-                nn.init.normal_(m.weight, 0.5, 0.01)
+                nn.init.normal_(m.weight_org, 0.5, 0.01)
                 nn.init.zeros_(m.bias)
         return
 
@@ -69,6 +72,24 @@ def Binarize(tensor, quant_mode='det'):
     else:
         return tensor.add_(1).div_(2).add_(torch.rand(tensor.size()).add(-0.5)).clamp_(0, 1).round().mul_(2).add_(-1)
 
+# class STEFunction(torch.autograd.Function):
+#     @staticmethod
+#     def forward(ctx, input):
+#         return (input > 0).float()
+#
+#     @staticmethod
+#     def backward(ctx, grad_output):
+#         return hardtanh(grad_output)
+#
+# class StraightThroughEstimator(nn.Module):
+#     def __init__(self):
+#         super(StraightThroughEstimator, self).__init__()
+#
+#     def forward(self, x):
+#         x = STEFunction.apply(x)
+#         return x
+
+
 class BNNLinear(Linear):
 
     def __init__(self, *kargs, **kwargs):
@@ -81,7 +102,7 @@ class BNNLinear(Linear):
         input.data = Binarize(input.data)
 
         self.weight.data = Binarize(self.weight_org)
-        out = linear(input, self.weight.data)
+        out = linear(input, self.weight.data).sub_(60)
 
         # if not self.bias is None:
         #     self.bias.org = self.bias.data.clone()
@@ -120,6 +141,8 @@ def XNOR(A, B):
         return torch.tensor(0)
     if A == 1 and B == 1:
         return torch.tensor(1)
+
+
 
 
 # def initialize_W(Weight):
@@ -180,8 +203,9 @@ class Bnntrainer():
         self.device = device
 
     def train_step(self, optimizer):
-        data = torch.zeros(50000, self.bit)
-        losses = []
+        data = torch.zeros(182000, self.bit)
+        epoch_losses = []
+        epoch_loss = 0
         input = torch.zeros(1,1,1,self.bit)
         label = labeling.label()
         f = open("output.txt", "r")
@@ -196,15 +220,16 @@ class Bnntrainer():
                     data[t][k] = int(i)
                     k += 1
 
-
             input[0][0] = data[t]
             target = torch.tensor(label[t])
             input, target = input.to(self.device), target.to(self.device)
             output = self.model(input)
 
             loss = (output-target).pow(2).sum()
-            loss = Variable(loss, requires_grad=True)
-            losses.append(loss.item())
+            loss = autograd.Variable(loss, requires_grad=True)
+            #losses.append(loss.item())
+            epoch_loss +=loss.item()
+            epoch_losses.append([t,epoch_loss])
             optimizer.zero_grad()
             loss.backward()
             for p in self.model.modules():
@@ -215,7 +240,7 @@ class Bnntrainer():
                 if hasattr(p, 'weight_org'):
                     p.weight_org.data.copy_(p.weight.data.clamp_(-1, 2))
             t +=1
-        return losses
+        return epoch_losses
 
 if __name__ == '__main__':
     #data load
@@ -238,18 +263,30 @@ if __name__ == '__main__':
     Bnn = Bnntrainer(Packetbnn, bit=120, device='cuda')
     optimizer = torch.optim.Adam(Packetbnn.parameters(), lr=0.001, weight_decay=1e-5)
 
-    losses= Bnn.train_step(optimizer)
+    epoch_losses= Bnn.train_step(optimizer)
+    b = []
+    c = []
+    for i in epoch_losses:
+        k = 0
+        if k%100 == 0 :
+            b.append(i[0])
+            c.append(i[1])
+        k +=1
+
+    fig, ax = plt.subplots(1, 1)
+    ax.plot(b, c, 'k', 9, label='bnn_loss sum')
+    plt.show()
     sys.stdout = open('weight.txt', 'w')
 
     print(Packetbnn.features[0].weight)
     print(Packetbnn.features[3].weight)
     W = Binarize(Packetbnn.features[0].weight)
     WW = W.byte()
-    # print(Binarize(Packetbnn.features[0].weight))
-    print(Binarize(Packetbnn.features[3].weight))
-    print(WW)
-    for i in range(40000):
-        if i%100 == 0 :
-            print(losses[i])
+    print(Binarize(Packetbnn.features[0].weight).byte())
+    print(Binarize(Packetbnn.features[3].weight).byte())
+
+    # for i in range(40000):
+    #     if i%100 == 0 :
+    #         print(losses[i])
 
     # target = data load
