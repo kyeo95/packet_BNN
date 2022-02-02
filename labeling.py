@@ -17,11 +17,12 @@ from kamene.all import *
 
 def label():
     #if malicious = 1
-    label = np.zeros(49100)
+    label = np.zeros(182000)
     f = open("output.txt", "r")
-    label_malicious= 0
+
     content = f.readlines()
-    for seq in range(0,49000):
+    for seq in range(0,180000):
+        label_malicious = 0
         src_a = content[seq][24:32]
         src_b = content[seq][32:40]
         src_c = content[seq][40:48]
@@ -144,81 +145,6 @@ def checkIRC(dec_srcc,dec_srcd, dst):
     return label_malicious
 
 
-
-# f = open("output.txt", "r")
-# content = f.readlines()
-#
-# data = torch.zeros(2,120)
-# for t in range(0,2) :
-#     for line in content:
-#         k = 0
-#         for i in line:
-#             if i.isdigit() == True:
-#                 data[t][k] = int(i)
-#                 #print(int(i))
-#                 k += 1
-
-#data[0][3] = int(12)
-# label(0)
-#
-# f = open("output.txt", "r")
-# content = f.readlines()
-# src_a = content[0][24:32]
-# src_b = content[0][32:40]
-# src_c = content[0][40:48]
-# src_d = content[0][48:56]
-#
-# print(content[0][24:56])
-# print(int(src_a, 2))
-# print(int(src_b, 2))
-# print(int(src_c, 2))
-# print(int(src_d, 2))
-
-# from scapy.utils import RawPcapReader
-#
-#
-# def process_pcap(file_name):
-#     count = 0
-#     interesting_packet_count = 0
-#
-#     for (pkt_data, pkt_metadata,) in RawPcapReader(file_name):
-#         count += 1
-#
-#         ether_pkt = Ether(pkt_data)
-#         if 'type' not in ether_pkt.fields:
-#             # LLC frames will have 'len' instead of 'type'.
-#             # We disregard those
-#             continue
-#
-#         if ether_pkt.type != 0x0800:
-#             # disregard non-IPv4 packets
-#             continue
-#
-#         ip_pkt = ether_pkt[IP]
-#         if ip_pkt.proto != 6:
-#             # Ignore non-TCP packet
-#             continue
-#
-#         interesting_packet_count += 1
-#         print(pkt_data)
-#     # print('{} contains {} packets ({} interesting)'.
-#     #       format(file_name, count, interesting_packet_count))
-#
-# file_name = "output11.pcap"
-# sys.stdout = open('output.txt','w')
-#
-# if not os.path.isfile(file_name):
-#     print('"{}" does not exist'.format(file_name), file=sys.stderr)
-#     sys.exit(-1)
-#
-# process_pcap(file_name)
-# sys.exit(0)
-
-
-#
-#
-#
-
 # from kamene.all import *
 # import sys
 # sys.stdout = open('output.txt','w')
@@ -262,4 +188,3 @@ def checkIRC(dec_srcc,dec_srcd, dst):
 #             f.write(line)
 # with open("output.txt", "r") as f:
 #     lines = f.readlines()
-
