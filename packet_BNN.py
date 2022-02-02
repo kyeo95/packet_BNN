@@ -4,10 +4,6 @@ import os
 import torch.nn as nn
 from torch.nn import Module, Conv1d, Conv2d, Linear
 from torch.nn.functional import linear, conv2d, conv1d, hardtanh
-from torch.utils.data import DataLoader
-from os.path import join
-from torchvision.datasets import MNIST
-from torchvision.transforms import Compose, Resize, Normalize, ToTensor
 import numpy as np
 import labeling
 import torch.nn as nn
@@ -41,10 +37,13 @@ class Packetbnn(nn.Module):
 
     def init_w(self):
         # weight initialization
+
+
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 #nn.init.kaiming_normal_(m.weight, mode='fan_out')
-                nn.init.uniform_(m.weight_org, a= 0., b= 1.)
+                nn.init.uniform_(m.weight, a= 0., b= 1.)
+                nn.init.uniform_(m.weight_org, a=0., b=1.)
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
             elif isinstance(m, nn.BatchNorm2d):
@@ -54,7 +53,7 @@ class Packetbnn(nn.Module):
                 nn.init.ones_(m.weight)
                 nn.init.zeros_(m.bias)
             elif isinstance(m, nn.Linear):
-                nn.init.uniform_(m.weight_org, a= 1., b= 1.)
+                nn.init.uniform_(m.weight, a= 1., b= 1.)
                 nn.init.zeros_(m.bias)
         return
 
@@ -122,7 +121,8 @@ class Bnntrainer():
         self.device = device
 
     def train_step(self, optimizer):
-        data = torch.zeros(182000, self.bit)
+        #data = torch.zeros(182000, self.bit)
+        data = torch.zeros(20000, self.bit)
         epoch_losses = []
         epoch_loss = 0
         input = torch.zeros(1,1,1,self.bit)
@@ -134,6 +134,8 @@ class Bnntrainer():
         t = 0
         for line in content:
             k = 0
+            if t ==20000 :
+                break
             for i in line:
                 if i.isdigit() == True:
                     data[t][k] = int(i)
@@ -141,7 +143,7 @@ class Bnntrainer():
 
             input[0][0] = data[t]
             target = torch.tensor(label[t])
-            input, target = input.to(self.device), target.to(self.device)
+            #input, target = input.to(self.device), target.to(self.device)
             output = self.model(input)
 
             loss = (output-target).pow(2).sum()
@@ -151,13 +153,15 @@ class Bnntrainer():
             epoch_losses.append([t,epoch_loss])
             optimizer.zero_grad()
             loss.backward()
+
             for p in self.model.modules():
                 if hasattr(p, 'weight_org'):
                     p.weight.data.copy_(p.weight_org)
             optimizer.step()
             for p in self.model.modules():
                 if hasattr(p, 'weight_org'):
-                    p.weight_org.data.copy_(p.weight.data.clamp_(-1, 2))
+                    #p.weight_org.data.copy_(p.weight.data.clamp_(-1, 2))
+                    p.weight_org.copy_(p.weight.data.clamp_(-1, 2))
             t +=1
         return epoch_losses
 
@@ -167,8 +171,9 @@ if __name__ == '__main__':
     # content = f.readlines()
     torch.set_printoptions(threshold=50000)
     torch.set_printoptions(linewidth=20000)
-    cuda = torch.cuda.is_available()
-    device = torch.device('cuda' if cuda else 'cpu')
+    # cuda = torch.cuda.is_available()
+    # device = torch.device('cuda' if cuda else 'cpu')
+    device = torch.device('cpu')
     # print(device)
     bit = 120
     Packetbnn = packetbnn()
@@ -181,7 +186,8 @@ if __name__ == '__main__':
 
     Bnn = Bnntrainer(Packetbnn, bit=120, device='cuda')
     optimizer = torch.optim.Adam(Packetbnn.parameters(), lr=0.001, weight_decay=1e-5)
-
+    ini_weight = Packetbnn.features[0].weight.clone()
+    ini_weight_org = Packetbnn.features[0].weight_org.clone()
     epoch_losses= Bnn.train_step(optimizer)
     b = []
     c = []
@@ -192,15 +198,26 @@ if __name__ == '__main__':
             c.append(i[1])
         k +=1
 
-    fig, ax = plt.subplots(1, 1)
-    ax.plot(b, c, 'k', 9, label='bnn_loss sum')
-    plt.show()
+    # fig, ax = plt.subplots(1, 1)
+    # ax.plot(b, c, 'k', 9, label='bnn_loss sum')
+    # plt.show()
+    # final_weight = Packetbnn.features[0].weight
+    # final_weight_org = Packetbnn.features[0].weight_org
+
+    # print(ini_weight[0])
+    # print(final_weight[0])
+    # print(ini_weight[0]-final_weight[0])
+    #
+    # print(ini_weight_org[0])
+    # print(final_weight_org[0])
+    # print(ini_weight_org[0]-final_weight_org[0])
+
     sys.stdout = open('weight.txt', 'w')
 
     print(Packetbnn.features[0].weight)
+    #print(Binarize(Packetbnn.features[0].weight).detach().numpy().x)
     print(Binarize(Packetbnn.features[0].weight).byte())
-
-
+    print(Binarize(Packetbnn.features[4].weight).byte())
     # for i in range(40000):
     #     if i%100 == 0 :
     #         print(losses[i])
