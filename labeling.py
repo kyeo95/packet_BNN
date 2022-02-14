@@ -54,7 +54,7 @@ def label():
             if dec_srcc == 106 and dec_srcd == 131:
                 label_malicious = 1
 
-        if dec_srca == 147 and dec_srcb == 132 :
+        if dec_srca == 147 and dec_srcb == 32 :
             if dec_srcc == 84:
                 list = [130, 140, 150, 160, 170, 180]
                 for a in list:
