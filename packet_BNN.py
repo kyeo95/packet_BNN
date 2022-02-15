@@ -1,16 +1,11 @@
 #malicious한 IP로 왔는지 source를 대조
 import torch
-import os
-import torch.nn as nn
-from torch.nn import Module, Conv1d, Conv2d, Linear
-from torch.nn.functional import linear, conv2d, conv1d, hardtanh
-import numpy as np
+from torch.nn import Module, Conv2d, Linear
+from torch.nn.functional import linear, conv2d
 import labeling
 import torch.nn as nn
 #from torch.autograd import Variable
 import torch.autograd as autograd
-from torch import save, no_grad
-from kamene.all import *
 import sys
 from matplotlib import pyplot as plt
 
@@ -23,7 +18,7 @@ class Packetbnn(nn.Module):
 
         self.features = nn.Sequential(
 
-            BNNConv2d(1, 120, kernel_size=(1,120), stride=1, padding=0, bias=False),
+            BNNConv2d(1, 120, kernel_size=(1,120), stride=1, padding=0),
             nn.GroupNorm(1,120),
             nn.Softsign(),
 
@@ -42,8 +37,8 @@ class Packetbnn(nn.Module):
         for m in self.modules():
             if isinstance(m, nn.Conv2d):
                 #nn.init.kaiming_normal_(m.weight, mode='fan_out')
-                nn.init.uniform_(m.weight, a= 0., b= 1.)
-                nn.init.uniform_(m.weight_org, a=0., b=1.)
+                nn.init.uniform_(m.weight, a= .0, b= 0.7)
+                nn.init.uniform_(m.weight_org, a=.0, b=0.7)
                 if m.bias is not None:
                     nn.init.zeros_(m.bias)
             elif isinstance(m, nn.BatchNorm2d):
@@ -107,8 +102,13 @@ class BNNConv2d(Conv2d):
 
         self.weight.data = Binarize(self.weight_org)
 
+
         out = conv2d(input, self.weight.data, None, self.stride,
                      self.padding, self.dilation, self.groups)
+
+        if not self.bias is None:
+            self.bias.org=self.bias.data.clone()
+            out += self.bias.view(1, -1, 1, 1).expand_as(out)
 
         return out
 
@@ -122,7 +122,7 @@ class Bnntrainer():
 
     def train_step(self, optimizer):
         #data = torch.zeros(182000, self.bit)
-        data = torch.zeros(20000, self.bit)
+        data = torch.zeros(50000, self.bit)
         epoch_losses = []
         epoch_loss = 0
         input = torch.zeros(1,1,1,self.bit)
@@ -134,7 +134,7 @@ class Bnntrainer():
         t = 0
         for line in content:
             k = 0
-            if t ==20000 :
+            if t ==50000 :
                 break
             for i in line:
                 if i.isdigit() == True:
@@ -185,7 +185,7 @@ if __name__ == '__main__':
     # sample input
 
     Bnn = Bnntrainer(Packetbnn, bit=120, device='cuda')
-    optimizer = torch.optim.Adam(Packetbnn.parameters(), lr=0.001, weight_decay=1e-5)
+    optimizer = torch.optim.Adam(Packetbnn.parameters(), lr=0.01, weight_decay=1e-7)
     ini_weight = Packetbnn.features[0].weight.clone()
     ini_weight_org = Packetbnn.features[0].weight_org.clone()
     epoch_losses= Bnn.train_step(optimizer)
