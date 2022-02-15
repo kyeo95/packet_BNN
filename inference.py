@@ -1,6 +1,6 @@
 import torch
 import labeling
-
+from torch.nn.functional import linear, conv2d
 
 
 
@@ -70,21 +70,30 @@ def inference():
 
         t += 1
 
+    torch.set_printoptions(threshold=50000)
+    torch.set_printoptions(linewidth=20000)
+
+    print(weight)
     accuracy = 0
     predict = torch.zeros(1)
-    middle_result = torch.zeros(120)
+    middle_result = torch.zeros(120,120)
     middle_result2 = torch.zeros(120)
+    middle_result3 = torch.zeros(120)
     label = labeling.label()
-    for z in range(5000,5100) :
+    for z in range(5000,5300) :
         print(z)
-        for k in range(0,120) :
-            middle_result = XNOR(data[z] , weight[k])
-            middle_result2[k] = Bitcount(middle_result)
-        middle_result= XNOR(middle_result2, weight[120])
-        predict = Bitcount(middle_result)
-
+        #for k in range(0,120) :
+        for k in range(0, 120):
+            middle_result[k] = XNOR(data[z] , weight[k])
+            #print(middle_result[k])
+            middle_result2[k] = Bitcount(middle_result[k])
+            #print(middle_result2[k])
+        middle_result3 = middle_result2 * weight[120]
+        #print(middle_result3)
+        predict = Bitcount(middle_result3)
         target = torch.tensor(label[z])
-
+        print("predict",predict )
+        print("target", target)
         if predict == target :
             accuracy+= 1
     return accuracy
